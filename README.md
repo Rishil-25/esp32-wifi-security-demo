@@ -16,6 +16,10 @@ When you connect to the fake AP, the attacker can:
 - **ESP32-C3** microcontroller
 - Standard USB power supply
 
+## Main Code File Password 
+- Dm Me For The Password on My linkdin Profile
+www.linkedin.com/in/rishil-shah-a95433273
+
 ## 🎥 Demo Video
 [Watch the Demo](demo/evil_twin_demo.mp4)
 
