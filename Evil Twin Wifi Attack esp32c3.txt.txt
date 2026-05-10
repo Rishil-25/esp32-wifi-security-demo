@@ -1,0 +1,254 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <DNSServer.h>
+
+const byte DNS_PORT = 53;
+DNSServer dnsServer;
+WebServer server(80);
+
+// =========================
+// ACCESS POINT CONFIG
+// =========================
+const char* ssid     = "CYBERSEC_AWARENESS_DEMO";
+const char* password = "";  // Open network — no password
+
+IPAddress local_ip(192, 168, 1, 1);
+IPAddress gateway(192, 168, 1, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+#define LED_PIN 8
+
+// =========================
+// PHASE 1: FAKE PORTAL PAGE
+// (Shows how attacker's page looks)
+// =========================
+String fakePage() {
+  return R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Router Firmware Update</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #f0f4f8;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: white;
+      width: 360px;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+      overflow: hidden;
+    }
+    .header {
+      background: #0055a5;
+      color: white;
+      padding: 22px 24px 16px;
+      text-align: center;
+    }
+    .header .icon { font-size: 36px; }
+    .header h2 { font-size: 18px; margin-top: 8px; }
+    .header p  { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .body { padding: 24px; }
+    .alert {
+      background: #fff8e1;
+      border-left: 4px solid #f59e0b;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #7c5c00;
+      margin-bottom: 18px;
+    }
+    label {
+      font-size: 13px;
+      color: #444;
+      display: block;
+      margin-bottom: 6px;
+    }
+    input[type=password] {
+      width: 100%;
+      padding: 12px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 15px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input[type=password]:focus { border-color: #0055a5; }
+    button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 16px;
+      background: #0055a5;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #aaa;
+      padding: 12px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="icon">📡</div>
+    <h2>Router Firmware Update</h2>
+    <p>Action required to continue</p>
+  </div>
+  <div class="body">
+    <div class="alert">
+      ⚠️ A critical firmware update is available. Enter your WiFi password to authorize the update.
+    </div>
+    <label>WiFi Password</label>
+    <input type="password" placeholder="Enter your WiFi password" id="pw">
+    <button onclick="window.location='/submit'">Authorize Update</button>
+  </div>
+  <div class="footer">Router Management Portal v2.1</div>
+</div>
+</body>
+</html>
+)=====";
+}
+
+// =========================
+// PHASE 2: REVEAL PAGE
+// (Shown after they "submit")
+// =========================
+String revealPage() {
+  return R"=====(
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cybersecurity Awareness Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f172a;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      border: 1.5px solid #334155;
+      width: 420px;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .top {
+      background: #dc2626;
+      padding: 24px;
+      text-align: center;
+      color: white;
+    }
+    .top .icon { font-size: 48px; }
+    .top h1 { font-size: 22px; margin-top: 10px; }
+    .body { padding: 28px; color: #e2e8f0; }
+    .body p { font-size: 14px; line-height: 1.7; color: #94a3b8; margin-bottom: 16px; }
+    .body h3 { font-size: 15px; color: #f1f5f9; margin-bottom: 10px; }
+    .tip {
+      background: #0f172a;
+      border-left: 3px solid #22c55e;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #86efac;
+      margin-bottom: 10px;
+    }
+    .badge {
+      display: inline-block;
+      background: #166534;
+      color: #bbf7d0;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 99px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <div class="icon">🔓</div>
+    <h1>You Were Just Phished!</h1>
+  </div>
+  <div class="body">
+    <span class="badge">✅ CYBERSEC AWARENESS DEMO — NO DATA WAS COLLECTED</span>
+    <p>
+      That page you just saw? A real attacker would use the exact same technique
+      to steal your WiFi password — built on a ₹300 microcontroller in minutes.
+    </p>
+    <h3>How to protect yourself:</h3>
+    <div class="tip">✓ Never enter your WiFi password on a browser page</div>
+    <div class="tip">✓ Routers update themselves — they never ask for passwords via WiFi</div>
+    <div class="tip">✓ Verify the SSID matches your actual home/office network</div>
+    <div class="tip">✓ Use a VPN on public/unknown networks</div>
+    <div class="tip">✓ Check for HTTPS and valid certificates on sensitive pages</div>
+    <p style="margin-top:16px; font-size:12px; color:#475569;">
+      Demo built on ESP32-C3 · Cyber Ethics by R · No credentials stored or transmitted.
+    </p>
+  </div>
+</div>
+</body>
+</html>
+)=====";
+}
+
+// =========================
+// ROUTES
+// =========================
+void handleRoot()   { server.send(200, "text/html", fakePage()); }
+void handleSubmit() { server.send(200, "text/html", revealPage()); }
+void handleRedirect() {
+  server.sendHeader("Location", "/", true);
+  server.send(302, "text/plain", "");
+}
+
+// =========================
+// SETUP
+// =========================
+void setup() {
+  Serial.begin(115200);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+
+  WiFi.softAPConfig(local_ip, gateway, subnet);
+  WiFi.softAP(ssid, password);
+
+  dnsServer.start(DNS_PORT, "*", local_ip);
+
+  Serial.println("\n=== Cybersecurity Awareness Demo ===");
+  Serial.print("SSID: "); Serial.println(ssid);
+  Serial.print("IP:   "); Serial.println(WiFi.softAPIP());
+
+  server.on("/",       handleRoot);
+  server.on("/submit", handleSubmit);
+  server.onNotFound(handleRedirect);
+
+  server.begin();
+  Serial.println("Server started. Waiting for connections...");
+}
+
+// =========================
+// LOOP
+// =========================
+void loop() {
+  dnsServer.processNextRequest();
+  server.handleClient();
+}
